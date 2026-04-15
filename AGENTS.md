@@ -1,159 +1,180 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to coding agents (Claude Code, Codex, etc.) working in this repository.
+
+## Project
+
+**reports.reesi.de** — internal analytics & customer-report platform. Two use cases:
+
+1. **Internal Analytics** — flexible dashboard for the Reesi team
+2. **Customer Reports** — reproducible sponsor-specific PDF reports
+
+See `PLAN.md` for full goals, phases, and metric priorities.
+
+**Leitmotiv:** Scope small, extend continuously. Every phase production-ready on its own.
+
+## Repo Layout
+
+Monorepo (npm workspaces):
+
+```
+reesi-bi-hub/
+├── apps/
+│   ├── web/          # Next.js 14 frontend (TypeScript, Tailwind)
+│   └── api/          # Python FastAPI middleware (uv)
+├── packages/
+│   └── shared/       # Shared TS types — normalized data schema
+├── supabase/
+│   └── migrations/   # reports schema (cache tables)
+├── .github/workflows/
+├── AGENTS.md
+├── PLAN.md
+└── package.json      # npm workspaces root
+```
+
+## Stack
+
+| Layer | Tech | Notes |
+|---|---|---|
+| Frontend | Next.js 14 (App Router) + TypeScript + Tailwind | Reesi Design System (orange + neutrals, IBM Plex Sans + Crimson Pro, glassmorphism) |
+| Chart API | Python 3.12 + FastAPI | Aggregation, chart generation, PDF export |
+| Data Adapter Layer | Python (Adapter Pattern) | `data_source.py` interface; `bubble_adapter.py` now, `supabase_adapter.py` in 2–3 months |
+| Data Sources | Bubble API · Supabase · Plausible | Swappable via adapter layer |
+| Cache | Supabase `reports` schema | Nightly for dashboards, on-demand for sponsor reports |
+| PDF | Puppeteer (headless Chrome) | Pixel-perfect, reproducible |
 
 ## Commands
 
+### Root (monorepo)
 ```bash
-npm install                  # Install dependencies
-npm run dev                  # Start dev server
-npx tsc --noEmit             # Type check
-npm run lint                 # Lint
-npm run test -- --run        # Run tests (non-watch)
-npm run test:coverage        # Coverage report
-npm run docs:generate        # Generate architecture docs
-npx playwright test          # E2E tests (optional, pre-PR)
+npm install                  # Install all JS workspaces
+npm run lint                 # Lint all workspaces
+npm run typecheck            # tsc --noEmit across workspaces
+npm run test                 # Jest across workspaces
 ```
 
-**Quality gate — run before completing any task:**
-1. `npx tsc --noEmit`
+### Frontend (`apps/web`)
+```bash
+npm run dev -w apps/web      # Next.js dev server
+npm run build -w apps/web    # Production build
+```
+
+### Backend (`apps/api`)
+```bash
+cd apps/api
+uv sync                      # Install Python deps
+uv run fastapi dev           # Dev server
+uv run pytest                # Tests
+uv run ruff check .          # Lint
+uv run ruff format .         # Format
+```
+
+## Quality Gate (before completion)
+
+1. `npm run typecheck`
 2. `npm run lint`
-3. `npm run test -- --run`
-4. `npm run test:coverage`
+3. `npm run test`
+4. For Python changes: `uv run ruff check . && uv run pytest`
 
-If documentation tooling was touched, also run `npm run docs:generate`.
+## Core Principles
 
-## Architecture
+### Data Adapter Pattern (non-negotiable)
 
-**Stack:** React + TypeScript + Vite frontend, Supabase backend (DB + Edge Functions)
+The data source is **only** accessed through the adapter interface in `apps/api/app/adapters/data_source.py`. All business logic, chart generation, and API endpoints consume the adapter interface — never Bubble/Supabase clients directly. This is what makes the Bubble → Supabase migration a one-file change.
 
-**Layer boundaries** (no cross-layer shortcuts — e.g., no utility/service importing page/component code):
-- `src/pages` — route-level composition only
-- `src/hooks` — UI-facing async/state coordination
-- `src/services` — data orchestration, external calls, backend-facing logic
-- `src/utils` — pure/shared helpers, no UI coupling
-- `src/components` / `src/components/ui` — shadcn/Radix-based UI primitives
-- `src/integrations/supabase/` — Supabase client, generated types
-- `supabase/functions/` — Edge Functions
-- `supabase/migrations/` — timestamped, idempotent schema migrations
-- `docs/architecture/*.mermaid` — architecture diagrams
+### Normalized Schema
 
-**Auth:** Custom `useAuth` hook wraps Supabase auth. Roles: `admin | user`. New users require admin approval. Database-level RLS enforces permissions.
+Every adapter returns data in the same shape (fields: `month`, `clicks`, `sponsor_id`, `study_id`, etc.). This schema is defined in `packages/shared/` and mirrored in `apps/api/app/schema/`. When you change one, change the other.
 
-## Database Schema (Core Entities)
+### Scope Discipline
 
-| Table | Purpose |
-|---|---|
-| `disease_areas` | Medical conditions (e.g., "Breast Cancer") |
-| `parameters` | Data points to extract (e.g., "HER2 Status") |
-| `trials` | Clinical trials with inclusion/exclusion criteria |
-| `prompts` | LLM prompts, versioned by `(disease_area_id, parameter_id, version)` with status tracking |
-| `model_classes` | Available AI models |
-| `evals` | Evaluation configurations |
-| `eval_runs` | Test execution results |
-| `trial_disease_areas` | Many-to-many: trials ↔ disease areas |
-| `prompt_model_classes` | Many-to-many: prompts ↔ models |
+- **No new customer-report modules without Christoph approval.**
+- **No new metrics without documented definition + stakeholder sign-off** (Salma, Christoph, Christian).
+- Every metric needs: plain-language definition, Bubble fields, aggregation logic, time granularity, relevance tier.
 
-## Brand & Design System
+### Caching Tiers
 
-**Philosophy:** "Clinical Precision Meets AI Magic" — medical-grade professionalism + AI aesthetics. Apply this system to every visual output: components, pages, artifacts, mockups.
+- **Nightly cache** — dashboard metrics, written to Supabase `reports` schema
+- **On-demand cache** — sponsor-report data, 24h TTL or manual invalidation
+- **No cache** — MCP ad-hoc queries only (accept token costs)
+
+## Reesi Brand (UI)
+
+**Philosophy:** "Clinical Precision Meets AI Magic"
 
 ### Colors
-
-**Primary (Orange):**
-| Token | Hex | When |
-|---|---|---|
-| `orange-500` | `#E67635` | Primary CTAs, active states, AI actions |
-| `orange-600` | `#C65D21` | Hover states, dark gradient end |
-| `orange-400` | `#EF8E58` | Hover on primary |
-| `orange-200` | `#FFD3BA` | Tags, subtle highlights |
-| `orange-100` | `#FFEFE6` | Tinted surfaces, hover backgrounds |
-
-**Neutrals:** `#222222` (text) → `#383838` → `#515151` → `#626262` → `#7E7E7E` → `#9E9E9E` → `#CFCFCF` → `#E1E1E1` → `#F7F7F7` (page bg). Never use pure `#000000`.
-
-**Semantic:** Success `#22C55E` · Error `#EF4444` · Warning `#F59E0B` · Info `#3B82F6` — only for status, never for brand elements.
+- **Primary:** `#E67635` (orange-500) for CTAs / AI actions, hover `#EF8E58`, dark `#C65D21`
+- **CTA gradient:** `linear-gradient(135deg, #E67635, #C65D21)` + `box-shadow: 0 4px 20px rgba(230,118,53,0.25)`
+- **Neutrals:** `#222222` (text) · `#626262` (secondary) · `#F7F7F7` (page bg). Never pure `#000000`.
+- **Brand tints:** `#FFEFE6` (bg) · `#FFD3BA` (tags)
+- **Semantic:** `#22C55E` success · `#EF4444` error · `#F59E0B` warning · `#3B82F6` info — status only, never brand
 
 ### Typography
-
 ```html
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
 ```
+- **IBM Plex Sans** — UI chrome (buttons, labels, nav, metrics)
+- **Crimson Pro** — content (prompts, descriptions, editorial)
 
-- **IBM Plex Sans** → UI chrome: buttons, labels, nav, headers, metrics
-- **Crimson Pro** → Content: prompts, descriptions, body text, editorial copy
-
-### Visual Language
-
-**Glassmorphism** is the core aesthetic — use for main content cards:
+### Glassmorphism (core card pattern)
 ```css
-.glass-card {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 16px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
-}
+background: rgba(255,255,255,0.7);
+backdrop-filter: blur(20px) saturate(180%);
+border: 1px solid rgba(255,255,255,0.5);
+border-radius: 16px;
+box-shadow: 0 4px 24px rgba(0,0,0,0.06);
 ```
 
-**CTA gradient:** `linear-gradient(135deg, #E67635, #C65D21)` with `box-shadow: 0 4px 20px rgba(230,118,53,0.25)`.
-
-**Border radius:** `6px` (sm) · `10px` (md) · `16px` (lg) · `24px` (xl)
-
-### React / Tailwind
-
-Reesi brand colors are **not** in the Tailwind default palette. Use inline styles or CSS variables — never `className="bg-orange-500"`:
-
+### Tailwind note
+Reesi colors are **not** in the Tailwind default palette. Use arbitrary values or CSS variables:
 ```jsx
-// Correct
-<button style={{ background: 'linear-gradient(135deg, #E67635, #C65D21)', color: 'white' }}>
-// Also fine (Tailwind JIT arbitrary values)
-<div className="bg-[#E67635] text-white">
+<div className="bg-[#E67635]">         // ✅
+<div className="bg-orange-500">        // ❌ (Tailwind's orange, not Reesi's)
 ```
 
----
+Brand tokens live in `apps/web/src/styles/brand.css` as CSS custom properties.
 
 ## Conventions
 
-**TypeScript:** Strict mode; avoid `any`. Reuse types from `src/integrations/supabase/types.ts`.
+### TypeScript
+- Strict mode; avoid `any`
+- Shared types live in `packages/shared/` — frontend and adapter schema stay in sync via this package
 
-**Naming:**
-- `PascalCase` — React components, hooks, types, interfaces, enums
-- `camelCase` — variables, functions, parameters, service/hook file exports
-- `UPPER_CASE` — true constants/config flags
-- `_leadingUnderscore` — intentionally unused args/vars only
-- Component files: `PascalCase`; utility/service/hook files: `camelCase`-style
+### Python
+- Ruff for lint + format (`ruff check`, `ruff format`)
+- Type hints on all public functions
+- Pydantic models for adapter returns — enforces the normalized schema at runtime
 
-**Styling:** Tailwind utilities and existing design tokens. Match existing spacing/typography/variant conventions. No ad-hoc CSS files unless no existing pattern fits.
+### Naming
+- **TS:** `PascalCase` components/types/hooks · `camelCase` vars/functions · `UPPER_CASE` constants
+- **Python:** `snake_case` modules/functions · `PascalCase` classes · `UPPER_CASE` constants
 
-**Tests:** Colocated in `__tests__` directories. Unit tests near changed logic. Do not weaken coverage thresholds — fix regressions in the same PR.
+### Commits
+Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`).
 
-**Migrations:** Timestamped filenames in `supabase/migrations/`. Keep idempotent and production-safe.
+### PRs
+- PR-first delivery — no direct pushes to `main` from local
+- After opening a PR, comment `@codex review` to trigger automated review
+- Required reviewer for first production deploys: Tosan or Johannes
 
-## Deployment
+## Engineering Hygiene (Day 1)
 
-**App (Hetzner):** Triggered automatically on push to `main` via `.github/workflows/deploy.yml`.
+- ESLint + Prettier (JS/TS), Ruff (Python) — CI fails on errors
+- Jest (JS) / pytest (Python) from start
+- **Coverage ≥ 70%** before production
+- `jscpd` — duplicate code detection
+- `dependency-cruiser` — enforce layer boundaries
+- `knip` — dead code / unused deps
 
-CI gate (must pass before deploy):
-```
-npm ci → agents:validate → filesize:check → bundle:check → lint → docs:generate → test:coverage → test:timed
-```
-Deploy: SSH to Hetzner, updates `/var/www/prompts-app` to `origin/main`, runs `npm ci && npm run build`, reloads Caddy via `systemctl reload caddy`.
+## Safety
 
-**Database Migrations (Supabase):** Via `.github/workflows/supabase-migrations.yml`.
-- Triggers: `workflow_dispatch` (manual) or push to `main` with commit message containing `[run-migrations]`
-- Requires secret: `SUPABASE_DB_URL` (session pooler, `sslmode=require`)
-- Do **not** use `--include-all` in CI unless intentionally backfilling old local migration files.
+- No secrets in commits. Use `.env.local` (gitignored)
+- No destructive DB operations without explicit approval
+- Migrations: timestamped, idempotent, production-safe, only in `supabase/migrations/`
+- Forward-fix migrations only — never mutate existing migration files
 
-**Release sequence:**
-1. Merge feature PR to `main`
-2. Confirm `Deploy to Hetzner` workflow is green
-3. If schema changed: run `Deploy Supabase Migrations`
-4. Smoke test: auth/login, prompts list + edit, playground run, eval run creation, Medical Model disease area open/edit/publish
+## Open Questions (check `PLAN.md` for owners)
 
-**Rollback:**
-- App: revert the commit on `main` and push — CI redeploys automatically
-- Migrations: create a forward-fix migration; never mutate old files. Run corrective SQL manually in Supabase if needed, then capture in a new migration.
-
-## PR Workflow
-
-Open a PR for all changes (no direct local deploys). After opening, comment `@codex review` to trigger automated code review.
+- Patient DB data privacy (Tosan)
+- Bubble API limits & workflow units (Jonah + Bubble)
+- Final customer-report module list (Christoph)

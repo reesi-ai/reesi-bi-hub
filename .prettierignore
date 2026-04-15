@@ -1,0 +1,10 @@
+node_modules
+.next
+dist
+build
+coverage
+*.min.js
+package-lock.json
+supabase/.branches
+supabase/.temp
+apps/api

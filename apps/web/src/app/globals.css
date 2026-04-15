@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import '../styles/brand.css';
+
+html,
+body {
+  font-family: var(--font-ui);
+  color: var(--color-text-primary);
+  background: linear-gradient(
+    180deg,
+    var(--color-bg-page) 0%,
+    #ffffff 40%,
+    rgba(255, 239, 230, 0.3) 100%
+  );
+  min-height: 100vh;
+}
+
+.prose-content {
+  font-family: var(--font-content);
+}
