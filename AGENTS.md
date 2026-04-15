@@ -1,121 +1,159 @@
-# AGENTS.md
+# CLAUDE.md
 
-This repository supports autonomous coding agents. Follow these rules when making changes.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Scope
+## Commands
 
-- Keep changes minimal and task-focused.
-- Prefer existing patterns, libraries, and file structure.
-- Do not add new dependencies unless necessary.
+```bash
+npm install                  # Install dependencies
+npm run dev                  # Start dev server
+npx tsc --noEmit             # Type check
+npm run lint                 # Lint
+npm run test -- --run        # Run tests (non-watch)
+npm run test:coverage        # Coverage report
+npm run docs:generate        # Generate architecture docs
+npx playwright test          # E2E tests (optional, pre-PR)
+```
 
-## Repository-Specific Coding Conventions
-
-### Components and UI
-
-- Build UI with existing `src/components` and `src/components/ui` patterns before creating new primitives.
-- Keep components focused and composable; move business logic to hooks/services.
-- Reuse shadcn/Radix-based components and existing variants instead of introducing parallel UI patterns.
-
-### Modular Boundaries
-
-- `src/pages`: route-level composition and orchestration only.
-- `src/hooks`: UI-facing async/state coordination.
-- `src/services`: data orchestration, external calls, and backend-facing logic.
-- `src/utils`: pure/shared helpers with no UI coupling.
-- Avoid cross-layer shortcuts (for example, utility/service modules importing page/component code).
-
-### Styling
-
-- Use Tailwind utilities and existing design tokens/palette.
-- Match existing spacing, typography, and variant conventions.
-- Avoid ad-hoc CSS files unless no existing utility/component pattern fits.
-
-### Naming Conventions
-
-- Use `PascalCase` for React components, hooks/types/interfaces/enums, and enum type names.
-- Use `camelCase` for variables, functions, parameters, and helper methods.
-- Use `UPPER_CASE` for true constants (for example config flags).
-- Allow leading underscore (`_`) only for intentionally unused args/vars.
-- Keep file naming consistent with existing structure: component files in `PascalCase`, utilities/services/hooks in `camelCase`-style exports.
-
-### TypeScript and Data Access
-
-- Keep strict typing intact; avoid `any` unless unavoidable and narrowly scoped.
-- Reuse types from `src/integrations/supabase/types.ts` and existing domain types.
-- For Supabase queries and relations, follow established normalization/guard patterns in the codebase.
-
-### Testing Expectations
-
-- Add or update tests when behavior changes.
-- Prefer targeted unit tests near changed logic (`__tests__` colocated patterns already in repo).
-- Keep mocks aligned with existing test style and avoid introducing new test frameworks.
-- Maintain healthy coverage for touched areas: if coverage gates fail, add focused tests for the changed or uncovered modules instead of weakening thresholds by default.
-- Treat coverage regressions as quality issues to resolve in the same PR unless explicitly approved otherwise.
-
-## Core Commands
-
-- Install: `npm install`
-- Dev: `npm run dev`
-- Typecheck: `npx tsc --noEmit`
-- Lint: `npm run lint`
-- Tests: `npm run test -- --run`
-- Coverage: `npm run test:coverage`
-- Docs: `npm run docs:generate`
-
-## Quality Gate (required before completion)
-
-After edits, run:
-
+**Quality gate — run before completing any task:**
 1. `npx tsc --noEmit`
 2. `npm run lint`
 3. `npm run test -- --run`
+4. `npm run test:coverage`
 
-If the task touches documentation tooling, also run `npm run docs:generate`.
+If documentation tooling was touched, also run `npm run docs:generate`.
 
-## Architecture Notes
+## Architecture
 
-- Frontend: React + TypeScript + Vite
-- Backend integration: Supabase (`src/integrations/supabase` and `supabase/functions`)
-- Service layer: `src/services`
-- Hooks layer: `src/hooks`
-- Architecture diagrams: `docs/architecture/*.mermaid`
+**Stack:** React + TypeScript + Vite frontend, Supabase backend (DB + Edge Functions)
 
-## Database and Migrations
+**Layer boundaries** (no cross-layer shortcuts — e.g., no utility/service importing page/component code):
+- `src/pages` — route-level composition only
+- `src/hooks` — UI-facing async/state coordination
+- `src/services` — data orchestration, external calls, backend-facing logic
+- `src/utils` — pure/shared helpers, no UI coupling
+- `src/components` / `src/components/ui` — shadcn/Radix-based UI primitives
+- `src/integrations/supabase/` — Supabase client, generated types
+- `supabase/functions/` — Edge Functions
+- `supabase/migrations/` — timestamped, idempotent schema migrations
+- `docs/architecture/*.mermaid` — architecture diagrams
 
-- Put schema changes in `supabase/migrations` with timestamped filenames.
-- Keep migrations idempotent and production-safe.
+**Auth:** Custom `useAuth` hook wraps Supabase auth. Roles: `admin | user`. New users require admin approval. Database-level RLS enforces permissions.
 
-## Safety
+## Database Schema (Core Entities)
 
-- Never commit secrets, tokens, or credentials.
-- Avoid destructive operations without explicit approval.
-- Do not rewrite unrelated files.
+| Table | Purpose |
+|---|---|
+| `disease_areas` | Medical conditions (e.g., "Breast Cancer") |
+| `parameters` | Data points to extract (e.g., "HER2 Status") |
+| `trials` | Clinical trials with inclusion/exclusion criteria |
+| `prompts` | LLM prompts, versioned by `(disease_area_id, parameter_id, version)` with status tracking |
+| `model_classes` | Available AI models |
+| `evals` | Evaluation configurations |
+| `eval_runs` | Test execution results |
+| `trial_disease_areas` | Many-to-many: trials ↔ disease areas |
+| `prompt_model_classes` | Many-to-many: prompts ↔ models |
 
-## PR and Review Workflow
+## Brand & Design System
 
-- Do not deploy directly from local changes.
-- Use PR-first delivery: open a pull request for all changes and merge via the repository workflow.
-- After opening a PR, add a comment with `@codex review` to trigger automated code review.
+**Philosophy:** "Clinical Precision Meets AI Magic" — medical-grade professionalism + AI aesthetics. Apply this system to every visual output: components, pages, artifacts, mockups.
 
-## Database Architecture
-The system manages a complex relationship between clinical entities:
+### Colors
 
-Core Entities:
+**Primary (Orange):**
+| Token | Hex | When |
+|---|---|---|
+| `orange-500` | `#E67635` | Primary CTAs, active states, AI actions |
+| `orange-600` | `#C65D21` | Hover states, dark gradient end |
+| `orange-400` | `#EF8E58` | Hover on primary |
+| `orange-200` | `#FFD3BA` | Tags, subtle highlights |
+| `orange-100` | `#FFEFE6` | Tinted surfaces, hover backgrounds |
 
-- disease_areas - Medical conditions (e.g., "Breast Cancer", "Lung Cancer")
-- parameters - Data points to extract (e.g., "HER2 Status", "Stage")
-- trials - Clinical trials with inclusion/exclusion criteria
-- prompts - LLM prompts with versioning system
-- model_classes - Available AI models
-- evals - Evaluation configurations
-- eval_runs - Test execution results
-Key Relationships:
+**Neutrals:** `#222222` (text) → `#383838` → `#515151` → `#626262` → `#7E7E7E` → `#9E9E9E` → `#CFCFCF` → `#E1E1E1` → `#F7F7F7` (page bg). Never use pure `#000000`.
 
-- trial_disease_areas - Many-to-many: trials can target multiple disease areas
-- prompt_model_classes - Many-to-many: prompts can work with multiple models
-- prompts - Versioned by (disease_area_id, parameter_id, version) with status tracking
-Authentication & Authorization
-- Auth Provider: Custom useAuth hook wraps Supabase auth
-- User Roles: admin | user with different permissions
-- Approval Flow: New users require admin approval before access
-- RLS: Database-level Row Level Security enforces permissions
+**Semantic:** Success `#22C55E` · Error `#EF4444` · Warning `#F59E0B` · Info `#3B82F6` — only for status, never for brand elements.
+
+### Typography
+
+```html
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+```
+
+- **IBM Plex Sans** → UI chrome: buttons, labels, nav, headers, metrics
+- **Crimson Pro** → Content: prompts, descriptions, body text, editorial copy
+
+### Visual Language
+
+**Glassmorphism** is the core aesthetic — use for main content cards:
+```css
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+}
+```
+
+**CTA gradient:** `linear-gradient(135deg, #E67635, #C65D21)` with `box-shadow: 0 4px 20px rgba(230,118,53,0.25)`.
+
+**Border radius:** `6px` (sm) · `10px` (md) · `16px` (lg) · `24px` (xl)
+
+### React / Tailwind
+
+Reesi brand colors are **not** in the Tailwind default palette. Use inline styles or CSS variables — never `className="bg-orange-500"`:
+
+```jsx
+// Correct
+<button style={{ background: 'linear-gradient(135deg, #E67635, #C65D21)', color: 'white' }}>
+// Also fine (Tailwind JIT arbitrary values)
+<div className="bg-[#E67635] text-white">
+```
+
+---
+
+## Conventions
+
+**TypeScript:** Strict mode; avoid `any`. Reuse types from `src/integrations/supabase/types.ts`.
+
+**Naming:**
+- `PascalCase` — React components, hooks, types, interfaces, enums
+- `camelCase` — variables, functions, parameters, service/hook file exports
+- `UPPER_CASE` — true constants/config flags
+- `_leadingUnderscore` — intentionally unused args/vars only
+- Component files: `PascalCase`; utility/service/hook files: `camelCase`-style
+
+**Styling:** Tailwind utilities and existing design tokens. Match existing spacing/typography/variant conventions. No ad-hoc CSS files unless no existing pattern fits.
+
+**Tests:** Colocated in `__tests__` directories. Unit tests near changed logic. Do not weaken coverage thresholds — fix regressions in the same PR.
+
+**Migrations:** Timestamped filenames in `supabase/migrations/`. Keep idempotent and production-safe.
+
+## Deployment
+
+**App (Hetzner):** Triggered automatically on push to `main` via `.github/workflows/deploy.yml`.
+
+CI gate (must pass before deploy):
+```
+npm ci → agents:validate → filesize:check → bundle:check → lint → docs:generate → test:coverage → test:timed
+```
+Deploy: SSH to Hetzner, updates `/var/www/prompts-app` to `origin/main`, runs `npm ci && npm run build`, reloads Caddy via `systemctl reload caddy`.
+
+**Database Migrations (Supabase):** Via `.github/workflows/supabase-migrations.yml`.
+- Triggers: `workflow_dispatch` (manual) or push to `main` with commit message containing `[run-migrations]`
+- Requires secret: `SUPABASE_DB_URL` (session pooler, `sslmode=require`)
+- Do **not** use `--include-all` in CI unless intentionally backfilling old local migration files.
+
+**Release sequence:**
+1. Merge feature PR to `main`
+2. Confirm `Deploy to Hetzner` workflow is green
+3. If schema changed: run `Deploy Supabase Migrations`
+4. Smoke test: auth/login, prompts list + edit, playground run, eval run creation, Medical Model disease area open/edit/publish
+
+**Rollback:**
+- App: revert the commit on `main` and push — CI redeploys automatically
+- Migrations: create a forward-fix migration; never mutate old files. Run corrective SQL manually in Supabase if needed, then capture in a new migration.
+
+## PR Workflow
+
+Open a PR for all changes (no direct local deploys). After opening, comment `@codex review` to trigger automated code review.
