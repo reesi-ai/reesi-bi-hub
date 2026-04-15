@@ -7,6 +7,7 @@ import httpx
 from app.config import Settings
 from app.schema import (
     CumulativeMetric,
+    HeatmapDataset,
     IndicationMetric,
     MonthlyMetric,
     SponsorRef,
@@ -71,4 +72,11 @@ class BubbleAdapter:
         raise NotImplementedError
 
     async def get_searches_by_indication(self) -> list[IndicationMetric]:
+        raise NotImplementedError
+
+    async def get_regional_distribution(
+        self,
+        sponsor_id: str | None = None,
+        study_ids: list[str] | None = None,
+    ) -> HeatmapDataset:
         raise NotImplementedError

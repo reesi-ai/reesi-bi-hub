@@ -14,6 +14,7 @@ from typing import Protocol, runtime_checkable
 
 from app.schema import (
     CumulativeMetric,
+    HeatmapDataset,
     IndicationMetric,
     MonthlyMetric,
     SponsorRef,
@@ -48,3 +49,9 @@ class DataSource(Protocol):
     async def get_logins(self) -> list[CumulativeMetric]: ...
 
     async def get_searches_by_indication(self) -> list[IndicationMetric]: ...
+
+    async def get_regional_distribution(
+        self,
+        sponsor_id: str | None = None,
+        study_ids: list[str] | None = None,
+    ) -> HeatmapDataset: ...

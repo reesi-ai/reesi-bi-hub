@@ -47,3 +47,25 @@ export interface IndicationMetric {
   month: IsoMonth;
   value: number;
 }
+
+export interface HeatmapPoint {
+  lat: number;
+  lng: number;
+  weight: number;
+  name: string;
+  city: string;
+  address: string;
+  search_count: number;
+}
+
+export interface HeatmapMeta {
+  trial: string;
+  total_searches: number;
+  total_sites: number;
+  generated: string;
+}
+
+export interface HeatmapDataset {
+  meta: HeatmapMeta;
+  points: HeatmapPoint[];
+}

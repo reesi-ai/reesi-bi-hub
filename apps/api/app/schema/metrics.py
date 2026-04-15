@@ -51,3 +51,25 @@ class IndicationMetric(BaseModel):
     indication: str
     month: IsoMonth
     value: float
+
+
+class HeatmapPoint(BaseModel):
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+    weight: float = Field(ge=0)
+    name: str
+    city: str
+    address: str
+    search_count: int = Field(ge=0)
+
+
+class HeatmapMeta(BaseModel):
+    trial: str = ""
+    total_searches: int = Field(ge=0)
+    total_sites: int = Field(ge=0)
+    generated: str
+
+
+class HeatmapDataset(BaseModel):
+    meta: HeatmapMeta
+    points: list[HeatmapPoint]

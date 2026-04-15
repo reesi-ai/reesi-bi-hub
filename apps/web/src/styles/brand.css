@@ -87,3 +87,42 @@
   transform: translateY(-1px);
   box-shadow: 0 6px 24px rgba(230, 118, 53, 0.35);
 }
+
+.reesi-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 3px;
+  outline: none;
+}
+
+.reesi-range:hover {
+  background: rgba(0, 0, 0, 0.14);
+}
+
+.reesi-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: var(--color-brand);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(230, 118, 53, 0.35);
+  transition: transform 0.15s ease;
+}
+
+.reesi-range::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.reesi-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: var(--color-brand);
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 8px rgba(230, 118, 53, 0.35);
+}
